@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="bn" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>দৈনিক নামাজ ট্র্যাকার</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Tiro Bangla', 'SolaimanLipi', 'Kalpurush', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&display=swap');
+        body {
+            font-family: 'Tiro Bangla', 'SolaimanLipi', 'Kalpurush', sans-serif;
+        }
+
+        /* Dedicated Printable / PDF Styles for Perfect 1-Page A4 Output */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printableArea, #printableArea * {
+                visibility: visible;
+            }
+            #printableArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        #pdfReportContainer {
+            font-family: 'Tiro Bangla', 'SolaimanLipi', sans-serif;
+            color: #0f172a;
+            width: 750px;
+            box-sizing: border-box;
+            background: #ffffff;
+            padding: 20px;
+        }
+
+        .pdf-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .pdf-table th {
+            background-color: #047857;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 11px;
+            padding: 4px 2px;
+            border: 1px solid #065f46;
+            text-align: center;
+        }
+
+        .pdf-table td {
+            border: 1px solid #cbd5e1;
+            padding: 2.5px 3px;
+            text-align: center;
+            font-size: 9.5px;
+            line-height: 1.1;
+        }
+
+        .pdf-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+    <!-- Header Navigation -->
+    <header class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-900 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="bg-amber-400 text-emerald-900 w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl shadow">
+                    <i class="fa-solid fa-mosque"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-wide">দৈনিক নামাজ ট্র্যাকার</h1>
+                    <p class="text-xs text-emerald-100 font-light">সালাতের ধারাবাহিকতা রক্ষার সহজ ডিজিটাল খাতা</p>
+                </div>
+            </div>
+            
+            <!-- Dark / Light Mode Toggle Button -->
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="p-2.5 rounded-full bg-emerald-800/60 hover:bg-emerald-800 text-amber-300 transition border border-emerald-600/40" title="ডার্ক/লাইট থিম টগল">
+                <i id="themeIcon" class="fa-solid fa-moon text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- User Name & Export Panel Card -->
+        <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 md:p-5 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+            <div class="flex-1">
+                <label for="userNameInput" class="block text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                    <i class="fa-solid fa-user-pen"></i> আপনার নাম (রিপোর্টে প্রদর্শনের জন্য)
+                </label>
+                <input type="text" id="userNameInput" oninput="saveUserName(this.value)" placeholder="যেমন: মোহাম্মদ আব্দুল্লাহ" 
+                    class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <!-- PDF Download & Print Action Buttons -->
+            <div class="flex flex-wrap sm:flex-nowrap gap-2 items-end">
+                <button onclick="generateBengaliPDF()" id="pdfDownloadBtn" class="flex-1 md:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow hover:shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-file-pdf text-amber-300"></i>
+                    <span>মাসিক PDF ডাউনলোড</span>
+                </button>
+
+                <button onclick="printReport()" class="flex-1 md:flex-none px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-xl shadow hover:shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-print text-emerald-300"></i>
+                    <span>প্রিন্ট করুন</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Date Navigation Controls -->
+        <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                
+                <!-- Date Picker Controls -->
+                <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-start">
+                    <button onclick="changeDate(-1)" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-slate-700 dark:text-slate-200 transition">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    
+                    <div class="relative text-center">
+                        <input type="date" id="datePicker" onchange="onDateSelect(this.value)" class="opacity-0 absolute inset-0 w-full h-full cursor-pointer">
+                        <div class="cursor-pointer bg-emerald-50 dark:bg-slate-700/60 hover:bg-emerald-100/80 px-4 py-2 rounded-xl border border-emerald-200 dark:border-slate-600">
+                            <span id="displayFormattedDate" class="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg block"></span>
+                            <span id="displayBengaliDay" class="text-xs text-emerald-700 dark:text-emerald-400 font-medium"></span>
+                        </div>
+                    </div>
+
+                    <button onclick="changeDate(1)" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-slate-700 dark:text-slate-200 transition">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Date Switchers -->
+                <div class="flex gap-2 w-full sm:w-auto justify-center">
+                    <button onclick="changeMonth(-1)" class="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 transition">
+                        <i class="fa-solid fa-angles-left"></i> আগের মাস
+                    </button>
+                    <button onclick="goToToday()" class="px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 rounded-lg hover:bg-emerald-200 transition">
+                        <i class="fa-solid fa-calendar-day"></i> আজ
+                    </button>
+                    <button onclick="changeMonth(1)" class="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 transition">
+                        পরবর্তী মাস <i class="fa-solid fa-angles-right"></i>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Daily Progress Visual Progress Bar -->
+        <section class="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-emerald-600 dark:text-emerald-400"></i> আজকের সালাত অগ্রগতি
+                </h2>
+                <span id="progressText" class="text-sm font-bold text-emerald-700 dark:text-emerald-400">০/৫ (০%)</span>
+            </div>
+            
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3.5 overflow-hidden p-0.5">
+                <div id="progressBar" class="bg-emerald-600 h-2.5 rounded-full transition-all duration-500 ease-out w-0"></div>
+            </div>
+            <p id="motivationalMsg" class="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center italic"></p>
+        </section>
+
+        <!-- Main Daily Prayers List (ফজর, জোহর, আসর, মাগরিব, এশা) -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-emerald-600"></i>
+                    <span>ফরজ নামাজ সমূহের তালিকা</span>
+                </h2>
+                <span class="text-xs text-slate-500">অবস্থা নির্বাচন করুন</span>
+            </div>
+
+            <div id="prayerList" class="space-y-3">
+                <!-- Dynamically Inserted -->
+            </div>
+        </section>
+
+        <!-- Optional Extra Prayers List (তাহাজ্জুদ, বিতর) -->
+        <section class="space-y-3 pt-2">
+            <h2 class="text-md font-semibold text-slate-700 dark:text-slate-300 px-1 flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-500 text-sm"></i>
+                <span>নফল ও সুন্নাত (ঐচ্ছিক)</span>
+            </h2>
+
+            <div id="optionalPrayerList" class="space-y-3">
+                <!-- Dynamically Inserted -->
+            </div>
+        </section>
+
+        <!-- Overall Saved Statistics Card -->
+        <section class="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white rounded-2xl p-5 shadow-md space-y-4">
+            <h3 class="text-sm font-semibold text-emerald-300 flex items-center gap-2">
+                <i class="fa-solid fa-award text-amber-400"></i> অল-টাইম সংরক্ষিত পরিসংখ্যান
+            </h3>
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                    <span id="statJamiyat" class="block text-xl md:text-2xl font-bold text-emerald-400">০</span>
+                    <span class="text-[11px] text-slate-300">জামাআতে ادا</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                    <span id="statEkaki" class="block text-xl md:text-2xl font-bold text-teal-300">০</span>
+                    <span class="text-[11px] text-slate-300">একাকী ادا</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                    <span id="statMissed" class="block text-xl md:text-2xl font-bold text-rose-400">০</span>
+                    <span class="text-[11px] text-slate-300">পড়া হয়নি</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reset Button Option -->
+        <div class="text-center pt-2">
+            <button onclick="confirmResetData()" class="text-xs text-rose-500 hover:text-rose-700 dark:text-rose-400 underline p-2">
+                সকল সেভ করা ডেটা মুছে ফেলুন
+            </button>
+        </div>
+
+    </main>
+
+    <!-- HIDDEN HTML TEMPLATE USED FOR GENERATING PRINT / PDF REPORT (FITS STRICTLY ON 1-PAGE A4) -->
+    <div style="position: absolute; left: -9999px; top: -9999px;">
+        <div id="pdfReportContainer">
+            <!-- Header Block -->
+            <div class="border-b-2 border-emerald-700 pb-2 mb-3 flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-emerald-800 leading-tight">মাসিক সালাত ট্র্যাকিং রিপোর্ট</h1>
+                    <p class="text-xs text-slate-600 font-medium">দৈনিক নামাজ ট্র্যাকার - নিয়মিত সালাতের হিসাব</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-bold text-slate-800">নাম: <span id="pdfUserName" class="text-emerald-700"></span></p>
+                    <p class="text-xs font-semibold text-slate-700">মাস ও বছর: <span id="pdfMonthYear" class="text-emerald-800 font-bold"></span></p>
+                </div>
+            </div>
+
+            <!-- PDF Statistics Overview Bar -->
+            <div class="grid grid-cols-4 gap-2 mb-3 text-center text-[10px]">
+                <div class="bg-emerald-50 border border-emerald-200 p-1.5 rounded">
+                    <span class="block text-slate-600">জামাআতে পড়া</span>
+                    <span id="pdfStatJamiyat" class="font-bold text-emerald-800 text-xs">০ ওয়াক্ত</span>
+                </div>
+                <div class="bg-teal-50 border border-teal-200 p-1.5 rounded">
+                    <span class="block text-slate-600">একাকী পড়া</span>
+                    <span id="pdfStatEkaki" class="font-bold text-teal-800 text-xs">০ ওয়াক্ত</span>
+                </div>
+                <div class="bg-rose-50 border border-rose-200 p-1.5 rounded">
+                    <span class="block text-slate-600">পড়া হয়নি</span>
+                    <span id="pdfStatMissed" class="font-bold text-rose-800 text-xs">০ ওয়াক্ত</span>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 p-1.5 rounded">
+                    <span class="block text-slate-600">মোট অর্জিত হার</span>
+                    <span id="pdfStatPercentage" class="font-bold text-amber-800 text-xs">০%</span>
+                </div>
+            </div>
+
+            <!-- PDF Monthly Detailed Grid Table -->
+            <table class="pdf-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">তারিখ</th>
+                        <th style="width: 17%;">ফজর</th>
+                        <th style="width: 17%;">জোহর</th>
+                        <th style="width: 17%;">আসর</th>
+                        <th style="width: 17%;">মাগরিব</th>
+                        <th style="width: 17%;">এশা</th>
+                    </tr>
+                </thead>
+                <tbody id="pdfTableBody">
+                    <!-- Dynamic PDF Rows -->
+                </tbody>
+            </table>
+
+            <!-- PDF Footer -->
+            <div class="mt-3 pt-2 border-t border-slate-300 flex justify-between items-center text-[9px] text-slate-500">
+                <p>“নিশ্চয়ই নামাজ নির্দিষ্ট সময়ে মুমিনদের ওপর ফরজ করা হয়েছে।” (সূরা আন-নিসা: ১০৩)</p>
+                <p>রিপোর্ট তৈরির তারিখ: <span id="pdfGeneratedDate"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printable Area Wrapper -->
+    <div id="printableArea" class="hidden"></div>
+
+    <!-- Confirmation Modal -->
+    <div id="customModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-xl border border-slate-200 dark:border-slate-700">
+            <div class="w-12 h-12 bg-rose-100 dark:bg-rose-950 text-rose-600 rounded-full flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">আপনি কি নিশ্চিত?</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300">আপনার সংরক্ষিত সমস্ত ট্র্যাকিং ডেটা মুছে যাবে!</p>
+            <div class="flex gap-2 justify-center pt-2">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl hover:bg-slate-300 transition">বাতিল</button>
+                <button id="modalConfirmBtn" class="px-4 py-2 bg-rose-600 text-white text-sm font-semibold rounded-xl hover:bg-rose-700 transition">হ্যাঁ, মুছে ফেলুন</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Bengali Digits Converter Utility
+        const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+        function toBengaliNum(num) {
+            if (num === null || num === undefined) return '০';
+            return num.toString().replace(/\d/g, d => bnDigits[d]);
+        }
+
+        const bnDays = {
+            'Sunday': 'রবিবার',
+            'Monday': 'সোমবার',
+            'Tuesday': 'মঙ্গলবার',
+            'Wednesday': 'বুধবার',
+            'Thursday': 'বৃহস্পতিবার',
+            'Friday': 'শুক্রবার',
+            'Saturday': 'শনিবার'
+        };
+
+        const bnMonths = [
+            'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+            'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+        ];
+
+        // 5 Primary Daily Obligatory Prayers
+        const mainPrayers = [
+            { id: 'fajr', name: 'ফজর', time: 'ভোর', rakah: '২ রাকাত ফরজ' },
+            { id: 'dhuhr', name: 'জোহর', time: 'দুপুর', rakah: '৪ রাকাত ফরজ' },
+            { id: 'asr', name: 'আসর', time: 'বিকাল', rakah: '৪ রাকাত ফরজ' },
+            { id: 'maghrib', name: 'মাগরিব', time: 'সন্ধ্যা', rakah: '৩ রাকাত ফরজ' },
+            { id: 'isha', name: 'এশা', time: 'রাত', rakah: '৪ রাকাত ফরজ' }
+        ];
+
+        // Optional/Sunnah Prayers
+        const optionalPrayers = [
+            { id: 'tahajjud', name: 'তাহাজ্জুদ', time: 'শেষ রাত', rakah: 'নফল' },
+            { id: 'witr', name: 'বিতর', time: 'এশার পর', rakah: 'ওয়াজিব' }
+        ];
+
+        // Global App States
+        let currentDate = new Date();
+        let appData = JSON.parse(localStorage.getItem('prayer_tracker_data')) || {};
+        let userName = localStorage.getItem('prayer_tracker_user_name') || '';
+
+        // App Initialization
+        window.onload = function() {
+            initTheme();
+            document.getElementById('userNameInput').value = userName;
+            updateUI();
+        };
+
+        function saveUserName(name) {
+            userName = name;
+            localStorage.setItem('prayer_tracker_user_name', name);
+        }
+
+        function getFormattedDateKey(date) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function formatBengaliDate(date) {
+            const dayName = bnDays[date.toLocaleDateString('en-US', { weekday: 'long' })];
+            const day = toBengaliNum(date.getDate());
+            const month = bnMonths[date.getMonth()];
+            const year = toBengaliNum(date.getFullYear());
+            return {
+                fullDate: `${day} ${month}, ${year}`,
+                dayName: dayName,
+                monthName: month,
+                year: year
+            };
+        }
+
+        function updateUI() {
+            const dateKey = getFormattedDateKey(currentDate);
+            const bnDateInfo = formatBengaliDate(currentDate);
+
+            // Render Nav Header
+            document.getElementById('displayFormattedDate').innerText = bnDateInfo.fullDate;
+            document.getElementById('displayBengaliDay').innerText = bnDateInfo.dayName;
+            document.getElementById('datePicker').value = dateKey;
+
+            // Render Prayer Lists
+            renderPrayerList('prayerList', mainPrayers, dateKey);
+            renderPrayerList('optionalPrayerList', optionalPrayers, dateKey);
+
+            // Recalculate Stats
+            updateProgress(dateKey);
+            updateOverallStats();
+        }
+
+        function renderPrayerList(containerId, list, dateKey) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            const dayRecord = appData[dateKey] || {};
+
+            list.forEach(prayer => {
+                const status = dayRecord[prayer.id]; // 'jamiyat', 'ekaki', 'missed', or undefined
+
+                let cardBorder = 'border-slate-200 dark:border-slate-700';
+                let statusBadge = '<span class="text-[11px] font-normal text-slate-400">অবস্থা নির্বাচন করুন</span>';
+
+                if (status === 'jamiyat') {
+                    cardBorder = 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20';
+                    statusBadge = '<span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-300"><i class="fa-solid fa-users text-xs"></i> জামাআতে পড়া হয়েছে</span>';
+                } else if (status === 'ekaki') {
+                    cardBorder = 'border-teal-500 bg-teal-50/40 dark:bg-teal-950/20';
+                    statusBadge = '<span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-800 dark:bg-teal-900/80 dark:text-teal-300"><i class="fa-solid fa-user text-xs"></i> একাকী পড়া হয়েছে</span>';
+                } else if (status === 'missed') {
+                    cardBorder = 'border-rose-400 bg-rose-50/50 dark:bg-rose-950/20';
+                    statusBadge = '<span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-900/80 dark:text-rose-300"><i class="fa-solid fa-xmark text-xs"></i> পড়া হয়নি</span>';
+                }
+
+                const cardHtml = `
+                    <div class="bg-white dark:bg-slate-800 p-3.5 md:p-4 rounded-xl border ${cardBorder} shadow-sm transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-base text-slate-800 dark:text-slate-100">${prayer.name}</h3>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                <span><i class="fa-regular fa-clock"></i> ${prayer.time}</span>
+                                <span>•</span>
+                                <span>${prayer.rakah}</span>
+                            </p>
+                        </div>
+
+                        <!-- Option Action Buttons -->
+                        <div class="grid grid-cols-3 gap-1.5 w-full sm:w-auto">
+                            <!-- Jamiyat Button -->
+                            <button onclick="setPrayerStatus('${prayer.id}', 'jamiyat')" 
+                                title="জামাআতে পড়া হয়েছে"
+                                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                                    status === 'jamiyat' 
+                                    ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-500' 
+                                    : 'bg-slate-100 dark:bg-slate-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                                }">
+                                <i class="fa-solid fa-users"></i>
+                                <span>জামাআত</span>
+                            </button>
+
+                            <!-- Ekaki Button -->
+                            <button onclick="setPrayerStatus('${prayer.id}', 'ekaki')" 
+                                title="একাকী পড়া হয়েছে"
+                                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                                    status === 'ekaki' 
+                                    ? 'bg-teal-600 text-white shadow ring-2 ring-teal-500' 
+                                    : 'bg-slate-100 dark:bg-slate-700 text-teal-800 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50'
+                                }">
+                                <i class="fa-solid fa-user"></i>
+                                <span>একাকী</span>
+                            </button>
+
+                            <!-- Missed Button -->
+                            <button onclick="setPrayerStatus('${prayer.id}', 'missed')" 
+                                title="পড়া হয়নি"
+                                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 ${
+                                    status === 'missed' 
+                                    ? 'bg-rose-600 text-white shadow ring-2 ring-rose-500' 
+                                    : 'bg-slate-100 dark:bg-slate-700 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50'
+                                }">
+                                <i class="fa-solid fa-xmark"></i>
+                                <span>পড়া হয়নি</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        function setPrayerStatus(prayerId, status) {
+            const dateKey = getFormattedDateKey(currentDate);
+
+            if (!appData[dateKey]) {
+                appData[dateKey] = {};
+            }
+
+            // Toggle off if clicked again
+            if (appData[dateKey][prayerId] === status) {
+                delete appData[dateKey][prayerId];
+            } else {
+                appData[dateKey][prayerId] = status;
+            }
+
+            localStorage.setItem('prayer_tracker_data', JSON.stringify(appData));
+            updateUI();
+        }
+
+        function updateProgress(dateKey) {
+            const dayRecord = appData[dateKey] || {};
+            let completedCount = 0;
+
+            mainPrayers.forEach(p => {
+                if (dayRecord[p.id] === 'jamiyat' || dayRecord[p.id] === 'ekaki') {
+                    completedCount++;
+                }
+            });
+
+            const percent = Math.round((completedCount / 5) * 100);
+            
+            document.getElementById('progressText').innerText = `${toBengaliNum(completedCount)}/৫ (${toBengaliNum(percent)}%)`;
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${percent}%`;
+
+            const msgEl = document.getElementById('motivationalMsg');
+            if (completedCount === 5) {
+                msgEl.innerText = "আলহামদুলিল্লাহ! আপনি আজকের ৫ ওয়াক্তের ফরজ সালাত সফলভাবে আদায় করেছেন।";
+                msgEl.className = "text-xs text-emerald-600 dark:text-emerald-400 mt-2 text-center font-semibold";
+            } else if (completedCount >= 3) {
+                msgEl.innerText = "মাশাআল্লাহ! অন্যান্য ওয়াক্তগুলোর দিকেও যত্নশীল থাকুন।";
+                msgEl.className = "text-xs text-amber-600 dark:text-amber-400 mt-2 text-center italic";
+            } else if (completedCount > 0) {
+                msgEl.innerText = "আল্লাহ আপনার সালাত কবুল করুন। বাকি ওয়াক্তগুলো আদায় করার চেষ্টা করুন।";
+                msgEl.className = "text-xs text-slate-500 dark:text-slate-400 mt-2 text-center italic";
+            } else {
+                msgEl.innerText = "নামাজ মুমিনের মিরাজ। আসুন ওয়াক্তমতো সালাত আদায়ের প্রস্তুতি নিই।";
+                msgEl.className = "text-xs text-slate-400 dark:text-slate-500 mt-2 text-center italic";
+            }
+        }
+
+        function updateOverallStats() {
+            let totalJamiyat = 0;
+            let totalEkaki = 0;
+            let totalMissed = 0;
+
+            Object.keys(appData).forEach(dateStr => {
+                mainPrayers.forEach(p => {
+                    const st = appData[dateStr][p.id];
+                    if (st === 'jamiyat') totalJamiyat++;
+                    else if (st === 'ekaki') totalEkaki++;
+                    else if (st === 'missed') totalMissed++;
+                });
+            });
+
+            document.getElementById('statJamiyat').innerText = `${toBengaliNum(totalJamiyat)} ওয়াক্ত`;
+            document.getElementById('statEkaki').innerText = `${toBengaliNum(totalEkaki)} ওয়াক্ত`;
+            document.getElementById('statMissed').innerText = `${toBengaliNum(totalMissed)} ওয়াক্ত`;
+        }
+
+        // Date & Month Navigation
+        function changeDate(offsetDays) {
+            currentDate.setDate(currentDate.getDate() + offsetDays);
+            updateUI();
+        }
+
+        function changeMonth(offsetMonths) {
+            currentDate.setMonth(currentDate.getMonth() + offsetMonths);
+            updateUI();
+        }
+
+        function goToToday() {
+            currentDate = new Date();
+            updateUI();
+        }
+
+        function onDateSelect(val) {
+            if (val) {
+                currentDate = new Date(val);
+                updateUI();
+            }
+        }
+
+        // Prepare PDF Table Data
+        function preparePDFData() {
+            const name = userName.trim() || 'নাম উল্লেখ করা হয়নি';
+            const year = currentDate.getFullYear();
+            const monthIdx = currentDate.getMonth();
+            const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+            const monthName = bnMonths[monthIdx];
+            const bengaliYearStr = toBengaliNum(year);
+
+            document.getElementById('pdfUserName').innerText = name;
+            document.getElementById('pdfMonthYear').innerText = `${monthName}, ${bengaliYearStr}`;
+            document.getElementById('pdfGeneratedDate').innerText = formatBengaliDate(new Date()).fullDate;
+
+            let monthJamiyat = 0;
+            let monthEkaki = 0;
+            let monthMissed = 0;
+            let monthTableRows = '';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, monthIdx, day);
+                const key = getFormattedDateKey(dateObj);
+                const dayData = appData[key] || {};
+
+                const dateStr = `${toBengaliNum(day)} ${monthName}`;
+                let rowHtml = `<tr><td style="font-weight: bold; background-color: #f1f5f9;">${dateStr}</td>`;
+
+                mainPrayers.forEach(p => {
+                    const st = dayData[p.id];
+                    if (st === 'jamiyat') {
+                        monthJamiyat++;
+                        rowHtml += `<td style="color: #047857; font-weight: bold; background-color: #f0fdf4;">জামাআত</td>`;
+                    } else if (st === 'ekaki') {
+                        monthEkaki++;
+                        rowHtml += `<td style="color: #0f766e; font-weight: bold; background-color: #f0fdfa;">একাকী</td>`;
+                    } else if (st === 'missed') {
+                        monthMissed++;
+                        rowHtml += `<td style="color: #be123c; background-color: #fff1f2;">পড়া হয়নি</td>`;
+                    } else {
+                        rowHtml += `<td style="color: #94a3b8;">-</td>`;
+                    }
+                });
+
+                rowHtml += '</tr>';
+                monthTableRows += rowHtml;
+            }
+
+            document.getElementById('pdfTableBody').innerHTML = monthTableRows;
+
+            document.getElementById('pdfStatJamiyat').innerText = `${toBengaliNum(monthJamiyat)} ওয়াক্ত`;
+            document.getElementById('pdfStatEkaki').innerText = `${toBengaliNum(monthEkaki)} ওয়াক্ত`;
+            document.getElementById('pdfStatMissed').innerText = `${toBengaliNum(monthMissed)} ওয়াক্ত`;
+
+            const totalPrayed = monthJamiyat + monthEkaki;
+            const monthTotalPossible = daysInMonth * 5;
+            const percent = Math.round((totalPrayed / monthTotalPossible) * 100);
+            document.getElementById('pdfStatPercentage').innerText = `${toBengaliNum(percent)}%`;
+        }
+
+        // Generate PDF Function
+        function generateBengaliPDF() {
+            const btn = document.getElementById('pdfDownloadBtn');
+            const originalBtnContent = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>প্রসেসিং...</span>';
+            btn.disabled = true;
+
+            preparePDFData();
+
+            const element = document.getElementById('pdfReportContainer');
+            const monthName = bnMonths[currentDate.getMonth()];
+            const year = currentDate.getFullYear();
+            const name = userName.trim() || 'User';
+
+            const opt = {
+                margin:       [0.2, 0.2, 0.2, 0.2],
+                filename:     `Prayer_Report_${name.replace(/\s+/g, '_')}_${monthName}_${year}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.innerHTML = originalBtnContent;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error("PDF Generation Error: ", err);
+                btn.innerHTML = originalBtnContent;
+                btn.disabled = false;
+                alert("PDF তৈরিতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।");
+            });
+        }
+
+        // Print Report Option
+        function printReport() {
+            preparePDFData();
+            const printableArea = document.getElementById('printableArea');
+            printableArea.innerHTML = document.getElementById('pdfReportContainer').outerHTML;
+            printableArea.classList.remove('hidden');
+            window.print();
+            printableArea.classList.add('hidden');
+            printableArea.innerHTML = '';
+        }
+
+        // Reset Data Modal
+        function confirmResetData() {
+            document.getElementById('customModal').classList.remove('hidden');
+            document.getElementById('modalConfirmBtn').onclick = function() {
+                localStorage.removeItem('prayer_tracker_data');
+                appData = {};
+                closeModal();
+                updateUI();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('customModal').classList.add('hidden');
+        }
+
+        // Dark/Light Mode Switcher
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-lg';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-moon text-lg';
+            }
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                document.getElementById('themeIcon').className = 'fa-solid fa-moon text-lg';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-lg';
+            }
+        }
+    </script>
+</body>
+</html>
